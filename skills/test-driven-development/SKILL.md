@@ -13,6 +13,17 @@ description: |
 
 # Dual-Loop TDD Workflow
 
+## The Iron Laws
+
+```
+Modifying existing behavior       → characterization test passing FIRST. Then change.
+New behavior with a real PRD      → acceptance test FIRST. Then implement.
+Code already shipped, no tests    → outer-loop compensation FIRST. Then attack edges.
+Neither path applies (ceremonial) → don't write the test. Say so to your human partner.
+```
+
+**No exceptions without your human partner's permission.** Skipping the "first" step turns the work into one of the failure modes this skill exists to prevent — silent regression, contract violation, or sycophantic tests. The rest of this skill is the operating manual for these four laws.
+
 ## Core Philosophy
 
 Three concrete workflows, not one rigid TDD ceremony:
@@ -106,15 +117,54 @@ A mapper-scoped integration test is justified only when the SQL behavior deserve
 
 The same state machine applies when deciding whether a Redis / broker integration test deserves a scope independent of its caller. Substitute the corresponding independent-anchor list (Lua script semantics, lock fencing tokens, ack / redelivery flow, partition-routing edges, ...).
 
+## Common Rationalizations
+
+These are the excuses that get this skill skipped. Each row names a thought you may be about to act on and the reality that overrides it.
+
+| Excuse | Reality |
+|---|---|
+| "Inner loop is enough, skip outer" | Inner is disposable. Outer pins intent. No outer = silent regressions on the next change. |
+| "Mock the mapper, it's faster" | You'd be testing the mock's shape, not the SQL. The container is JVM-shared and near-free per test. |
+| "Split into unit (logic) + integration (SQL) for separation of concerns" | Splits leave the seam unprotected, duplicate seeding, and force the mock to mimic a multi-column JOIN return — almost always the wrong shape. |
+| "Test class A's method, then class B's method separately — that's proper unit testing" | Unit = use case = whole feature path through one service method. Class-scoped tests duplicate setup and miss the contract. |
+| "`@DisplayName('test case 1')` is fine, names don't matter" | Tests are the spec the next agent reads. `test case 1` forces them to reverse-engineer intent from your implementation. |
+| "Skip the `Contract:` block this time, the test is small" | The `Contract:` block IS the API doc for future-you and future-agent. Skipping it converts the test into a black box. |
+| "I already manually called the endpoint, it works" | Manual run ≠ pinned contract. Can't re-run on the next refactor. No regression net. |
+| "Characterization test on a buggy path will lock in the bug" | That's the point. It exposes the bug as a delta when you change behavior. Don't characterize what you intend to fix in the *same* change, but DO characterize what surrounds it. |
+| "PRD is vague, I'll just write tests against my interpretation" | If you can't state one concrete acceptance criterion from the PRD in a sentence, the work is modification, not greenfield. Switch paths or ask. |
+| "The middleware behavior is just plumbing, mock it" | Plumbing behavior IS the bug surface for connector code (FieldStrategy, TTL math, ack flow). Use the real container. |
+| "Two `Integer clientId`s with the same value is fine, the test passes" | Distinct Test Values violation. The bug where the code uses the wrong one becomes invisible. |
+| "I'll add the test after the code, the diff is small" | Tests-after = "what does this do?" Tests-first (characterization or acceptance) = "what should this do?" The two answer different questions. |
+
+## Red Flags — STOP and reconsider
+
+If you notice any of these while working, the path has gone wrong. Re-read the relevant section above and, if it's still unclear, surface the decision to your human partner before continuing.
+
+- Writing inner-loop adversarial tests before checking whether outer-loop tests cover the core business path
+- Splitting one use case into "mapper-scoped test + service-scoped test with a mocked mapper"
+- Mocking a `DataSource` / `BaseMapper` / `RedisTemplate` / `RedissonClient` / `KafkaTemplate` to simulate its semantics
+- Hand-rolling a mock return value with the shape of a JOIN / JSON typeHandler column / enum / bit / NOT NULL DEFAULT
+- A new test passing on first run during modification work, without a characterization snapshot first
+- `@DisplayName` or method name reads as "test case 1" / "should_work" / "test_branch_a"
+- Test name or comment ties to ephemeral context (`// added for #1234`, `// the new behavior after the 2026-04 refactor`)
+- Two parameters / fields / mock returns sharing the same value where they semantically differ (Distinct Test Values violation)
+- Greenfield path chosen but you cannot state one concrete acceptance criterion in a sentence
+- Characterization test chosen for a path that has no caller in main code (it's dead code — delete, don't pin)
+- Coverage decision is "let's add a test just in case" rather than "this attacks a real bug surface"
+- Mock setup is longer than the function under test
+- About to write an assertion whose expected value you are *guessing* rather than knowing
+
+**All of these mean: stop, re-read the relevant section above, and surface the decision to your human partner if it's still unclear.**
+
 ## Picking the path
 
 Once you've decided the test is worth writing, pick the workflow that matches the situation:
 
 | Situation | Path |
 |---|---|
-| Modifying / extending / fixing existing behavior | → [Outer loop — modification](references/outer-loop-modification.md) |
-| New, large, contract-heavy feature with a real PRD | → [Outer loop — greenfield](references/outer-loop-greenfield.md) |
-| Code already implemented, needs adversarial coverage | → [Inner loop](references/inner-loop-guide.md) |
+| Modifying / extending / fixing existing behavior | → [Outer loop — modification](references/outer-loop-modification.md) — **MANDATORY: characterization suite all-green BEFORE editing a single line of production code** |
+| New, large, contract-heavy feature with a real PRD | → [Outer loop — greenfield](references/outer-loop-greenfield.md) — **MANDATORY: at least one concrete acceptance criterion stated in one sentence before writing the first test** |
+| Code already implemented, needs adversarial coverage | → [Inner loop](references/inner-loop-guide.md) — **MANDATORY: outer-loop compensation check (see detection flow) before writing the first adversarial case** |
 | Greenfield + need adversarial coverage | greenfield first, then inner loop |
 
 **Default for ambiguous cases**: if you cannot state a concrete acceptance criterion from the PRD in one sentence, treat the work as a modification (characterization-first), not greenfield (PRD → Gherkin). Greenfield is the exception.
@@ -140,3 +190,40 @@ Scoped to pure utilities. Methodology TBD.
 4. **Distinguish value sources**: every data source the method under test can reach (parameters, injected fields, query return values) must be assigned mutually distinct values in the test. Mock expected values must be chosen from the contract's intent, not copied from variables used in the implementation. `""` / `null` / `0` / seed-default values are NOT distinct from each other — they are all "unset" synonyms; an assertion comparing two of them locks nothing. See "Distinct Test Values rule" in [inner-loop-guide.md](references/inner-loop-guide.md).
 5. The inner loop is disposable — regenerate it after architectural changes. Outer-loop tests are durable — touch them only when intent changes.
 6. **When unsure, ask first.** If you are about to write an assertion and you are *guessing* the expected behavior rather than knowing it, OR the behavior has 2+ defensible interpretations, OR a newly written test fails and you cannot tell whether the test or the production code is wrong — stop and surface the question to the user. Tools (mysql MCP / grep / git blame) sharpen the question; they do not replace asking.
+
+## Verification Checklist
+
+Before marking the test work complete, all relevant boxes must be checked.
+
+**Path-agnostic:**
+- [ ] Unit = use case, not class or method
+- [ ] Middleware in the path → real Testcontainers container; no mocked client
+- [ ] Class-level `Contract:` Javadoc block present and stated in business language
+- [ ] `@DisplayName` and method names read as one spec line in business language
+- [ ] No comments / names tied to PRs / tickets / refactors
+- [ ] Every data source assigned a distinct value (Distinct Test Values rule)
+
+**Modification path (additionally):**
+- [ ] Characterization suite was all-green before any production change
+- [ ] After change: previously-green characterization tests still green, OR red intentionally with an updated assertion that reflects the new contract
+
+**Greenfield path (additionally):**
+- [ ] Every acceptance criterion from the PRD has at least one test
+- [ ] No assertion is guessed (Core Principle 6 — surfaced to human if uncertain)
+
+**Inner-loop path (additionally):**
+- [ ] Outer-loop compensation check completed (core happy path + main business branches covered) before any adversarial test
+- [ ] At least one adversarial case attacks real behavior, not a paraphrase of the implementation's happy path
+
+Can't check all relevant boxes? You're not done. Re-read the relevant section or ask your human partner.
+
+## Final Rule
+
+```
+Modification → characterization green BEFORE change, green AFTER change (or red on purpose with updated assertion)
+Greenfield   → PRD → acceptance test → implementation, in that order
+Inner loop   → outer-loop coverage first, then attack edges
+Always       → unit = use case, real container when middleware is in the path, Contract: block + business-language names, Distinct Test Values
+```
+
+Otherwise → stop and ask your human partner before producing the test.
