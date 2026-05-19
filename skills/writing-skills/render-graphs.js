@@ -93,8 +93,8 @@ function main() {
     console.error('  --combine    Combine all diagrams into one SVG');
     console.error('');
     console.error('Example:');
-    console.error('  ./render-graphs.js ../brainstorming');
-    console.error('  ./render-graphs.js ../brainstorming --combine');
+    console.error('  ./render-graphs.js ../using-superpowers');
+    console.error('  ./render-graphs.js ../using-superpowers --combine');
     process.exit(1);
   }
 

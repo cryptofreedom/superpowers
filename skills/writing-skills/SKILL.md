@@ -281,7 +281,7 @@ wc -w skills/path/SKILL.md
 
 Use skill name only, with explicit requirement markers:
 - ✅ Good: `**REQUIRED SUB-SKILL:** Use jason-superpowers:test-driven-development`
-- ✅ Good: `**REQUIRED BACKGROUND:** You MUST understand jason-superpowers:systematic-debugging`
+- ✅ Good: `**REQUIRED BACKGROUND:** You MUST understand eci_log_debugger`
 - ❌ Bad: `See skills/testing/test-driven-development` (unclear if required)
 - ❌ Bad: `@skills/testing/test-driven-development/SKILL.md` (force-loads, burns context)
 
@@ -398,7 +398,7 @@ Different skill types need different test approaches:
 
 ### Discipline-Enforcing Skills (rules/requirements)
 
-**Examples:** TDD, verification-before-completion, designing-before-coding
+**Examples:** TDD, designing-before-coding
 
 **Test with:**
 - Academic questions: Do they understand the rules?

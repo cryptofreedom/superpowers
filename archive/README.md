@@ -106,3 +106,136 @@ Originals captured before rewrite so the new versions are diffable:
   (which required `superpowers:foo` → `jason-superpowers:foo` updates in
   `skills/systematic-debugging/SKILL.md`, `skills/writing-skills/SKILL.md`,
   and `skills/writing-skills/testing-skills-with-subagents.md`).
+
+## upstream-skills/{brainstorming,verification-before-completion}/ — removed 2026-05-18 (round 3)
+
+Two more skills cut after determining they are net-negative for jason's
+actual workflow on Claude Code + Opus 4.7:
+
+- `brainstorming/` — Forced design-doc ceremony before any creative work.
+  Redundant when the user self-judges complexity: simple work → direct
+  implement, complex work → CC's plan mode. brainstorming layered `spec →
+  plan → execute` instead of the cleaner `plan → execute`. Includes the
+  visual-companion browser server (`scripts/start-server.sh`, frame
+  template, etc.) — full directory archived.
+- `verification-before-completion/` — Forced re-run of validation
+  commands before claiming "done". Useful for users who get burned by
+  false-done claims; for jason, false-done is rare and the discipline
+  cost outweighed the benefit.
+
+Concurrent bootstrap simplification:
+- `skills/using-superpowers/SKILL.md` — graphviz lost the
+  `"About to EnterPlanMode?" → "Already brainstormed?" → "Invoke
+  brainstorming"` branch (3 nodes + 4 edges removed); Skill Priority
+  section rewritten to drop the brainstorming example and point
+  "Add a feature" work at TDD + CC plan mode instead.
+- `skills/systematic-debugging/SKILL.md` — dropped the
+  `verification-before-completion` line from Related skills.
+- `skills/writing-skills/SKILL.md` — replaced `verification-before-completion`
+  with `systematic-debugging` in the Discipline-Enforcing skill examples.
+- `skills/writing-skills/render-graphs.js` — example command pointed at
+  `../brainstorming` (now deleted); switched to `../using-superpowers`.
+- `.claude-plugin/plugin.json` + `marketplace.json` — description and
+  keywords no longer mention brainstorming / verification.
+
+Surviving 5 skills: `receiving-code-review`, `systematic-debugging`,
+`test-driven-development`, `using-superpowers`, `writing-skills`.
+
+## upstream-skills/systematic-debugging/ — removed 2026-05-19 (round 4)
+
+Plugin skill cut after evaluating its content against CC + Opus 4.7 baseline.
+Most of the 4-phase methodology (read errors, reproduce, check git, find
+working examples, form hypothesis) is already strongly internalized by Opus
+4.7. The genuine bite was ~20 lines: Iron Law, single-hypothesis discipline,
+the 3-failed-fixes architectural gate, and a compressed rationalizations
+table. Those 20 lines were migrated to `eci_log_debugger` (user-level skill)
+as Pattern 7, Pattern 8, a top-of-file Iron Law block, and a Pitfalls
+rationalizations table.
+
+The 3 supporting reference files were all evaluated and dropped without
+migration:
+- `root-cause-tracing.md` — JS/TS technique (`console.error` + `new Error().stack`).
+  Java has full stack traces by default, and `eci_log_debugger` Pattern 6
+  already encodes the "trace to a logging-guaranteed boundary" principle in
+  ECI-specific terms (Feign interface method name).
+- `defense-in-depth.md` — Actually a fix-hardening / validation-design pattern,
+  not a debugging methodology. Different concern. Spring already has the
+  validation idioms it advocates (`@Valid`, ControllerAdvice, custom validators).
+  If anything, this content might belong in `java-backend-dev` later — not in
+  the debug stack.
+- `condition-based-waiting.md` — Jest/Vitest test-writing pattern
+  (`waitFor` vs `setTimeout`). Java equivalent is Awaitility, well-known.
+  TDD-SKILL's unit=use-case + Testcontainers transaction-commit semantics
+  naturally avoids the multi-second sleep antipatterns this addresses.
+
+Concurrent cleanup:
+- `skills/using-superpowers/SKILL.md` — Skill Priority section rewritten
+  to route "Fix this bug" at log/trace skills first (instead of
+  systematic-debugging); Skill Types Rigid list dropped systematic-debugging.
+- `skills/writing-skills/SKILL.md` — Discipline-Enforcing examples reduced
+  to `TDD, designing-before-coding` (systematic-debugging removed).
+- `eci_log_debugger/SKILL.md` (user-level) — Iron Law inserted after frontmatter;
+  Patterns 7 & 8 appended to Reasoning Patterns; rationalizations table inserted
+  at top of Pitfalls; frontmatter description extended to mention general debugging
+  discipline so the skill auto-routes for any debugging task (not just log keywords).
+
+Surviving 4 skills: `receiving-code-review`, `test-driven-development`,
+`using-superpowers`, `writing-skills`.
+
+## user-level-migrated/TDD-SKILL/ — removed 2026-05-19 (round 5)
+
+The user-level `~/.claude/skills/TDD-SKILL/` was the original source we cloned
+into plugin's `skills/test-driven-development/` during round 0. After the SP
+bite grafts (Iron Laws, Common Rationalizations, Red Flags, Verification
+Checklist, Final Rule, MANDATORY-in-Picking-the-path), the plugin version
+became a strict superset of TDD-SKILL — verified by `diff`:
+- 4 references files: 100% byte-identical
+- SKILL.md: plugin has 5 extra H2 sections, no content lost
+- Only "deletion" in the migration was the frontmatter `name:` field and the
+  table rows that got enhanced with inline MANDATORY suffix
+
+Kept as `archive/user-level-migrated/TDD-SKILL/` for recovery if needed.
+After this round, the plugin's `test-driven-development` is the single
+authoritative TDD skill — no duplicate routing in Opus's skill list.
+
+Concurrent integration: `skills/using-superpowers/SKILL.md` Skill Priority
+section was rewritten into a fuller **Skill Map + Intent Routing** that
+explicitly lists all 7 post-install skills (4 plugin + 3 user-level —
+`eci_log_debugger`, `local-debug`, `java-backend-dev`) and maps user-intents
+to skill chains. Skill Types section's Rigid list extended to mention
+`eci_log_debugger`'s Iron Law + Patterns 7/8.
+
+User-level skills retained (after this round): `eci_log_debugger`,
+`local-debug`, `java-backend-dev` (3 user-level; TDD-SKILL removed as above).
+
+## user-level slimming 2026-05-19 (round 6)
+
+Two follow-up edits on user-level skills, no content backup (user owns these
+and can git-track separately; the changes are slim-not-delete):
+
+### `~/.claude/skills/local-debug/SKILL.md` — Phase 4 slimmed (~25 lines removed)
+
+The original Phase 4 ("Debug Loop Protocol") carried a self-contained 8-step
+methodology cycle (understand → hypothesize → change → restart → test →
+analyze → verify → loop) plus 6 substeps. After round 4 moved general
+debugging methodology into `eci_log_debugger` (Iron Law + Pattern 7 + Pattern 8),
+local-debug's 8-step cycle became redundant — two skills competing to own
+the "how to debug" narrative.
+
+Phase 4 renamed to "**In-Loop Operations (project-specific)**" and reduced
+to only the project-specific bits: reload strategy decision (Java-only vs
+pom/config), reproduce + capture trace_id, MySQL MCP verification, report
+format. Opens with explicit pointer: "For methodology, invoke
+`eci_log_debugger`". One-skill-one-responsibility now holds.
+
+### `~/.claude/skills/java-backend-dev/SKILL.md` — dead `TDD-SKILL` reference removed
+
+The section "## TDD-SKILL (MANDATORY — invoke before AND after editing)"
+(3 lines) pointed at a skill that no longer exists (TDD-SKILL was deleted
+round 5; its content migrated to plugin's `test-driven-development`).
+
+Section deleted in full. TDD invocation for Java work is now handled by
+the bootstrap's Intent Routing table — every code-change chain has
+`test-driven-development` in it. The "before AND after" framing was
+already redundant with `test-driven-development`'s own dual-loop
+structure (outer-loop = before; inner-loop = after).

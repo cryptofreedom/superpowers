@@ -40,9 +40,6 @@ For independent research or heavy codebase exploration, use the `Agent` tool wit
 ```dot
 digraph skill_flow {
     "User message received" [shape=doublecircle];
-    "About to EnterPlanMode?" [shape=doublecircle];
-    "Already brainstormed?" [shape=diamond];
-    "Invoke brainstorming skill" [shape=box];
     "Might any skill apply?" [shape=diamond];
     "Invoke Skill tool" [shape=box];
     "Announce: 'Using [skill] to [purpose]'" [shape=box];
@@ -50,11 +47,6 @@ digraph skill_flow {
     "Create TaskCreate task per item" [shape=box];
     "Follow skill exactly" [shape=box];
     "Respond (including clarifications)" [shape=doublecircle];
-
-    "About to EnterPlanMode?" -> "Already brainstormed?";
-    "Already brainstormed?" -> "Invoke brainstorming skill" [label="no"];
-    "Already brainstormed?" -> "Might any skill apply?" [label="yes"];
-    "Invoke brainstorming skill" -> "Might any skill apply?";
 
     "User message received" -> "Might any skill apply?";
     "Might any skill apply?" -> "Invoke Skill tool" [label="yes, even 1%"];
@@ -82,19 +74,38 @@ These thoughts mean STOP — you're rationalizing:
 | "I'll just do this one thing first" | Check BEFORE doing anything. |
 | "I know what that means" | Knowing the concept ≠ using the skill. Invoke it. |
 
-## Skill Priority
+## Skill Map
 
-When multiple skills could apply, use this order:
+These are the 7 skills you have. `using-superpowers` itself is the bootstrap you're reading right now and isn't a routing target — invoke any of the others.
 
-1. **Process skills first** (brainstorming, systematic-debugging) — these determine HOW to approach the task
-2. **Implementation skills second** (test-driven-development, writing-skills) — these guide execution
+| Skill | Role |
+|---|---|
+| `test-driven-development` | **Implementation discipline.** Dual-loop TDD (modification / greenfield / inner). The spine for ANY code change. |
+| `writing-skills` | **Meta.** Use when creating, editing, or testing skills. |
+| `receiving-code-review` | Process inbound review feedback critically — push back on wrong feedback, don't blindly accept. |
+| `eci_log_debugger` | **Debug evidence + general debug methodology.** ECI log / trace_id / Excel via `eci-debug` CLI, PLUS the Iron Law (no fix without evidence), single-hypothesis discipline, and the 3-failed-fixes architectural gate. Routes for ANY debug task even without log keywords. |
+| `local-debug` | Spring Boot lifecycle for ECI Connector — start / stop / restart on port 8079, curl endpoints, kill stale processes. |
+| `java-backend-dev` | Java / Spring coding conventions — Law of Demeter, parameter-object pattern, MyBatis raw SQL, English logging, branch workflow. |
 
-"Let's build X" → brainstorming first, then implementation skills.
-"Fix this bug" → systematic-debugging first, then test-driven-development.
+## Intent Routing
+
+Match the user's intent to the skill chain. Chains run **left to right** — invoke the leftmost skill first, then chain right as the situation demands.
+
+| Intent / user-said | Chain |
+|---|---|
+| Debug a bug / "为啥这接口 500" / they hand you a trace_id | `eci_log_debugger` (evidence) → optionally `local-debug` (curl to reproduce) → `test-driven-development` (modification path: characterization first, then fix) → `java-backend-dev` (style sanity on the fix) |
+| New feature / "实现 X 接口" | `ExitPlanMode` (CC plan mode) → `test-driven-development` (greenfield if a real PRD exists, else modification) → `java-backend-dev` (Java conventions) → `local-debug` (start + curl the new endpoint) |
+| Refactor existing code | `test-driven-development` (modification path: characterization-first to lock current behavior) → `java-backend-dev` (refactor mode rules) → `local-debug` (regression smoke test) |
+| "起一下服务" / "重启" / "调一下接口" (pure lifecycle) | `local-debug` standalone, no chain |
+| "搜一下日志" / "trace 一下" / "看下 Excel 配置" (pure tooling) | `eci_log_debugger` standalone, no chain |
+| Reviewer flags your code / you got review feedback | `receiving-code-review` (decide pushback vs accept) → `test-driven-development` (implement accepted changes via TDD) |
+| Create or edit a skill | `writing-skills` |
+
+**Default rule when in doubt:** invoke `eci_log_debugger` first for anything that smells like debugging (it now carries the generic Iron Law), and `test-driven-development` first for anything that touches production code.
 
 ## Skill Types
 
-**Rigid** (test-driven-development, systematic-debugging): Follow exactly. Don't adapt away discipline.
+**Rigid** (test-driven-development; the Iron Law + Pattern 7 + Pattern 8 inside eci_log_debugger): Follow exactly. Don't adapt away discipline.
 
 **Flexible** (patterns): Adapt principles to context.
 

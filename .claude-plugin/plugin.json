@@ -1,6 +1,6 @@
 {
   "name": "jason-superpowers",
-  "description": "Personal CC-only fork of superpowers — opinionated TDD, debugging, brainstorming, verification skills tuned for Claude Code + Opus 4.7",
+  "description": "Personal CC-only fork of superpowers — opinionated TDD, systematic debugging, and review-handling skills tuned for Claude Code + Opus 4.7",
   "version": "5.1.0",
   "author": {
     "name": "jason",
@@ -11,8 +11,7 @@
     "skills",
     "tdd",
     "debugging",
-    "brainstorming",
-    "verification",
+    "code-review",
     "claude-code"
   ]
 }
